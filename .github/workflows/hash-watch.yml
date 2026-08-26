@@ -1,0 +1,191 @@
+name: hash-watch
+
+# UBI-182: Datadog's own real published identity (repo_name = "datadog")
+# is a real 4-member group -- datadog/datadog_v2 (v1/v2 resource mode),
+# datadog_ds/datadog_v2_ds (v1/v2 data-source mode), all fetched from
+# Datadog's own real, published OpenAPI specs (same repo/branch) but
+# built through genuinely different pipelines. --generate-snapshot-group
+# regenerates all four real members in one real invocation and assembles
+# them into one real, versioned group container (internal/snapshot's own
+# AssembleGroup: the highest real change level across every member,
+# never hand-picked). --prev-snapshot points at THIS checkout's own root
+# (already the real manifest.json + members/ shape a real group needs),
+# so a content change that doesn't affect any member's own translated
+# schema produces NoChange and no PR.
+#
+# Never auto-merges, matching every other repo in this org.
+
+on:
+  schedule:
+    - cron: "0 6 * * 1" # every Monday, 06:00 UTC
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  check-and-regenerate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out ubx-schema-datadog
+        uses: actions/checkout@v4
+
+      - name: Check out ubx-provider-dynamic (to build it from source)
+        run: |
+          set -euo pipefail
+          git clone --depth=1 \
+            "https://github.com/Ubiquex/ubx-provider-dynamic.git" \
+            "${{ runner.temp }}/ubx-provider-dynamic-src"
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: ${{ runner.temp }}/ubx-provider-dynamic-src/go.mod
+
+      - name: Build ubx-provider-dynamic
+        run: |
+          set -euo pipefail
+          go build -C "${{ runner.temp }}/ubx-provider-dynamic-src" \
+            -o "${{ runner.temp }}/ubx-provider-dynamic" \
+            ./cmd/ubx-provider-dynamic
+
+      - name: Read the committed group version before regenerating
+        id: before
+        run: |
+          set -euo pipefail
+          current="$(python3 -c "import json; print(json.load(open('manifest.json'))['version'])")"
+          echo "current=$current" >> "$GITHUB_OUTPUT"
+          echo "Committed manifest.json is at version $current"
+
+      - name: Regenerate all four real members and assemble the group
+        id: gen
+        run: |
+          set -euo pipefail
+          mkdir -p "${{ runner.temp }}/gen/.ubx"
+          cat > "${{ runner.temp }}/gen/.ubx/config" <<'EOF'
+          [dynamic_providers.datadog]
+          schema_source = "openapi"
+          schema_url = "https://raw.githubusercontent.com/DataDog/datadog-api-client-go/master/.generator/schemas/v1/openapi.yaml"
+          base_url = "https://api.datadoghq.com"
+
+          [dynamic_providers.datadog.auth]
+          type = "api_key_header"
+          [[dynamic_providers.datadog.auth.params.headers]]
+          name = "DD-API-KEY"
+          value_env = "DATADOG_API_KEY"
+          [[dynamic_providers.datadog.auth.params.headers]]
+          name = "DD-APPLICATION-KEY"
+          value_env = "DATADOG_APP_KEY"
+
+          [dynamic_providers.datadog_v2]
+          schema_source = "openapi"
+          schema_url = "https://raw.githubusercontent.com/DataDog/datadog-api-client-go/master/.generator/schemas/v2/openapi.yaml"
+          base_url = "https://api.datadoghq.com"
+          wire_name = "datadog"
+
+          [dynamic_providers.datadog_v2.auth]
+          type = "api_key_header"
+          [[dynamic_providers.datadog_v2.auth.params.headers]]
+          name = "DD-API-KEY"
+          value_env = "DATADOG_API_KEY"
+          [[dynamic_providers.datadog_v2.auth.params.headers]]
+          name = "DD-APPLICATION-KEY"
+          value_env = "DATADOG_APP_KEY"
+
+          [dynamic_providers.datadog_ds]
+          schema_source = "openapi"
+          schema_url = "https://raw.githubusercontent.com/DataDog/datadog-api-client-go/master/.generator/schemas/v1/openapi.yaml"
+          base_url = "https://api.datadoghq.com"
+          wire_name = "datadog"
+          data_sources = true
+
+          [dynamic_providers.datadog_ds.auth]
+          type = "api_key_header"
+          [[dynamic_providers.datadog_ds.auth.params.headers]]
+          name = "DD-API-KEY"
+          value_env = "DATADOG_API_KEY"
+          [[dynamic_providers.datadog_ds.auth.params.headers]]
+          name = "DD-APPLICATION-KEY"
+          value_env = "DATADOG_APP_KEY"
+
+          [dynamic_providers.datadog_v2_ds]
+          schema_source = "openapi"
+          schema_url = "https://raw.githubusercontent.com/DataDog/datadog-api-client-go/master/.generator/schemas/v2/openapi.yaml"
+          base_url = "https://api.datadoghq.com"
+          wire_name = "datadog"
+          data_sources = true
+
+          [dynamic_providers.datadog_v2_ds.auth]
+          type = "api_key_header"
+          [[dynamic_providers.datadog_v2_ds.auth.params.headers]]
+          name = "DD-API-KEY"
+          value_env = "DATADOG_API_KEY"
+          [[dynamic_providers.datadog_v2_ds.auth.params.headers]]
+          name = "DD-APPLICATION-KEY"
+          value_env = "DATADOG_APP_KEY"
+          EOF
+
+          # --group-exclude records the SAME real precedence judgment
+          # ubiquex's own [dynamic_provider_groups.datadog_all.exclude]
+          # table already makes for codegen (v1's own richer version
+          # wins both real resource collisions and the one real
+          # data-source collision) -- kept in sync by hand with that
+          # table today; if ubiquex's own exclude table ever changes,
+          # this needs updating to match, or a future real collision
+          # will fail loud here until it is (the correct, honest
+          # failure mode -- never silently mismerged).
+          rm -rf "${{ runner.temp }}/new-group"
+          ( cd "${{ runner.temp }}/gen" && \
+            "${{ runner.temp }}/ubx-provider-dynamic" \
+              --generate-snapshot-group="${{ runner.temp }}/new-group" \
+              --group-repo-name=datadog \
+              --group-members=datadog,datadog_v2,datadog_ds,datadog_v2_ds \
+              --group-exclude='{"datadog_v2":["datadog_application_key_response","datadog_user_response"],"datadog_v2_ds":["datadog_awsevent_bridge_list_response"]}' \
+              --prev-snapshot="$GITHUB_WORKSPACE" )
+
+          new="$(python3 -c "import json; print(json.load(open('${{ runner.temp }}/new-group/manifest.json'))['version'])")"
+          echo "new=$new" >> "$GITHUB_OUTPUT"
+          if [ "$new" = "${{ steps.before.outputs.current }}" ]; then
+            echo "newer=false" >> "$GITHUB_OUTPUT"
+            echo "Already current at ${{ steps.before.outputs.current }} -- nothing to do."
+          else
+            echo "newer=true" >> "$GITHUB_OUTPUT"
+            echo "Real version change: ${{ steps.before.outputs.current }} -> $new"
+          fi
+
+      - name: Report which real members changed
+        if: steps.gen.outputs.newer == 'true'
+        run: |
+          set -euo pipefail
+          for f in "${{ runner.temp }}"/new-group/members/*.json; do
+            name="$(basename "$f" .json)"
+            if ! diff -q "$f" "members/$name.json" > /dev/null 2>&1; then
+              echo "changed member: $name"
+            fi
+          done
+
+      - name: Open PR
+        if: steps.gen.outputs.newer == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          cp "${{ runner.temp }}/new-group/manifest.json" manifest.json
+          cp "${{ runner.temp }}"/new-group/members/*.json members/
+          git config user.name "ubx-bot"
+          git config user.email "actions@users.noreply.github.com"
+          branch="snapshot-regen/datadog-${{ steps.gen.outputs.new }}"
+          git checkout -b "$branch"
+          git add manifest.json members/
+          git commit -m "snapshot: regenerate from Datadog OpenAPI specs, ${{ steps.before.outputs.current }} -> ${{ steps.gen.outputs.new }}"
+          git push origin "$branch" --force
+          gh pr create \
+            --title "snapshot: regenerate from Datadog OpenAPI specs (${{ steps.before.outputs.current }} -> ${{ steps.gen.outputs.new }})" \
+            --body "Automated regeneration (\`.github/workflows/hash-watch.yml\`), triggered by re-running ubx-provider-dynamic's own \`--generate-snapshot-group\` against Datadog's live v1/v2 OpenAPI specs (all four real members: \`datadog\`, \`datadog_v2\` resource mode, \`datadog_ds\`, \`datadog_v2_ds\` data-source mode) and diffing mechanically against the previously committed group.
+
+          Previous version: \`${{ steps.before.outputs.current }}\`
+          New version: \`${{ steps.gen.outputs.new }}\`
+
+          Only the real, changed members/*.json files are touched -- unaffected members stay byte-identical. Never auto-merges -- review the diff before merging. After merge, dispatch \`publish.yml\` to cut the real GitHub Release." \
+            --base main --head "$branch"
