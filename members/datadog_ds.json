@@ -32,6 +32,7 @@
     "Delete": "",
     "Default": ""
   },
+  "wire_name": "datadog",
   "raw_spec": {
     "components": {
       "parameters": {

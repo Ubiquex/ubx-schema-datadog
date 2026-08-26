@@ -69,13 +69,27 @@ version = "1.0.0"
 Each launched process picks its own member back out of the shared group
 by the `UBX_DYNAMIC_PROVIDER_NAME` it already receives.
 
-Real v1/v2 collisions (two resource names, one data-source name -- v1's
-own richer version always wins) are resolved at `ubx sdk gen` codegen
-time in `ubiquex` (`[dynamic_provider_groups.datadog_all].exclude`), a
-separate, pre-existing concern from this repo's own snapshot -- a
-pinned member's own real content is exactly what was fetched, unmerged;
-the exclude/merge step runs downstream of pinning, identical to how it
-already runs downstream of a live fetch.
+**Real, current limitation, named not hidden**: unlike `ubx-schema-kubernetes`
+(whose two real members never collide), Datadog's own real v1/v2 surface
+has a genuine collision -- two resource type names and one data-source
+type name that both v1 and v2 independently produce (v1's own richer
+version is the intended winner). `ubx-provider-dynamic`'s own real,
+generic group-merge mechanism (`internal/snapshot.MergeOpenAPIGroup`)
+refuses loudly on any such collision rather than picking one silently --
+confirmed live against this repo's own real, regenerated snapshot. This
+means the four pins above, kept SEPARATE, are the real, current way to
+use this group; a single combined `[providers.datadog]` pin (matching
+Kubernetes' own simpler shape) is not yet possible here and will error
+if attempted, until a real precedence mechanism (mirroring `ubx sdk
+gen`'s own existing `[dynamic_provider_groups.datadog_all].exclude`
+table) is built for the pinned-resolution path specifically -- real,
+explicit, unstarted follow-up work, not solved in this repo.
+
+Codegen time (`ubx sdk gen`, a separate mechanism from pinning
+entirely) already resolves this same collision via
+`[dynamic_provider_groups.datadog_all].exclude` in `ubiquex` -- that
+table has no bearing on pinned resolution today, and pinned resolution
+has no equivalent of its own yet.
 
 ## Versioning
 
