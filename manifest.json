@@ -7,5 +7,14 @@
     "datadog_ds",
     "datadog_v2",
     "datadog_v2_ds"
-  ]
+  ],
+  "exclude": {
+    "datadog_v2": [
+      "datadog_application_key_response",
+      "datadog_user_response"
+    ],
+    "datadog_v2_ds": [
+      "datadog_awsevent_bridge_list_response"
+    ]
+  }
 }

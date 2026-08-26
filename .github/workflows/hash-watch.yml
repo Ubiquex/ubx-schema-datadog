@@ -126,12 +126,22 @@ jobs:
           value_env = "DATADOG_APP_KEY"
           EOF
 
+          # --group-exclude records the SAME real precedence judgment
+          # ubiquex's own [dynamic_provider_groups.datadog_all.exclude]
+          # table already makes for codegen (v1's own richer version
+          # wins both real resource collisions and the one real
+          # data-source collision) -- kept in sync by hand with that
+          # table today; if ubiquex's own exclude table ever changes,
+          # this needs updating to match, or a future real collision
+          # will fail loud here until it is (the correct, honest
+          # failure mode -- never silently mismerged).
           rm -rf "${{ runner.temp }}/new-group"
           ( cd "${{ runner.temp }}/gen" && \
             "${{ runner.temp }}/ubx-provider-dynamic" \
               --generate-snapshot-group="${{ runner.temp }}/new-group" \
               --group-repo-name=datadog \
               --group-members=datadog,datadog_v2,datadog_ds,datadog_v2_ds \
+              --group-exclude='{"datadog_v2":["datadog_application_key_response","datadog_user_response"],"datadog_v2_ds":["datadog_awsevent_bridge_list_response"]}' \
               --prev-snapshot="$GITHUB_WORKSPACE" )
 
           new="$(python3 -c "import json; print(json.load(open('${{ runner.temp }}/new-group/manifest.json'))['version'])")"

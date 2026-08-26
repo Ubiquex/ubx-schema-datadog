@@ -1,10 +1,9 @@
 # ubx-schema-datadog
 
 A real, frozen, versioned Datadog provider schema snapshot -- the pinnable
-distribution artifact `ubx-provider-dynamic` and `ubiquex` resolve a
-`[providers.datadog]`/`[providers.datadog_v2]`/`[providers.datadog_ds]`/
-`[providers.datadog_v2_ds]` entry against, with zero network calls at
-schema resolution time (see `provider/acquireschema.go` in `ubiquex`, and
+distribution artifact `ubx-provider-dynamic` and `ubiquex` resolve a single
+`[providers.datadog]` entry against, with zero network calls at schema
+resolution time (see `provider/acquireschema.go` in `ubiquex`, and
 `internal/snapshot`'s own doc comment in `ubx-provider-dynamic`).
 
 ## What's here
@@ -43,53 +42,34 @@ different pipelines:
 
 ## Consuming a real, published version
 
-In `ubiquex`, pin each real member you need -- all four point at the SAME
-repo/version, `provider.AcquireSchema`'s own cache-by-source+version
-collapses this into ONE real download and ONE extracted cache directory
-regardless of how many members reference it:
+In `ubiquex`, one pin serves all four real members -- resources and data
+sources together, `[providers.datadog_v2]`/`[providers.datadog_ds]`/
+`[providers.datadog_v2_ds]` are not needed at the config level at all,
+matching Kubernetes' own single-entry shape:
 
 ```toml
 [providers.datadog]
 source  = "ubiquex/datadog"
 version = "1.0.0"
-
-[providers.datadog_v2]
-source  = "ubiquex/datadog"
-version = "1.0.0"
-
-[providers.datadog_ds]
-source  = "ubiquex/datadog"
-version = "1.0.0"
-
-[providers.datadog_v2_ds]
-source  = "ubiquex/datadog"
-version = "1.0.0"
 ```
 
-Each launched process picks its own member back out of the shared group
-by the `UBX_DYNAMIC_PROVIDER_NAME` it already receives.
-
-**Real, current limitation, named not hidden**: unlike `ubx-schema-kubernetes`
-(whose two real members never collide), Datadog's own real v1/v2 surface
-has a genuine collision -- two resource type names and one data-source
-type name that both v1 and v2 independently produce (v1's own richer
-version is the intended winner). `ubx-provider-dynamic`'s own real,
-generic group-merge mechanism (`internal/snapshot.MergeOpenAPIGroup`)
-refuses loudly on any such collision rather than picking one silently --
-confirmed live against this repo's own real, regenerated snapshot. This
-means the four pins above, kept SEPARATE, are the real, current way to
-use this group; a single combined `[providers.datadog]` pin (matching
-Kubernetes' own simpler shape) is not yet possible here and will error
-if attempted, until a real precedence mechanism (mirroring `ubx sdk
-gen`'s own existing `[dynamic_provider_groups.datadog_all].exclude`
-table) is built for the pinned-resolution path specifically -- real,
-explicit, unstarted follow-up work, not solved in this repo.
-
-Codegen time (`ubx sdk gen`, a separate mechanism from pinning
-entirely) already resolves this same collision via
-`[dynamic_provider_groups.datadog_all].exclude` in `ubiquex` -- that
-table has no bearing on pinned resolution today, and pinned resolution
-has no equivalent of its own yet.
+**Real collision, resolved on the artifact itself**: Datadog's own real
+v1/v2 surface has a genuine collision -- two resource type names and one
+data-source type name that both v1 and v2 independently produce. Unlike
+`ubx-schema-kubernetes` (whose two real members never collide, so this
+never came up there), `manifest.json` here carries a real `exclude`
+table recording which member's own copy loses each contested name --
+the same real "v1 wins on field richness" judgment `ubx sdk gen` already
+makes today via `[dynamic_provider_groups.datadog_all].exclude` in
+`ubiquex`, now recorded on the published snapshot itself so the pinned
+path can read it too, rather than inventing a second, separate
+judgment. `ubx-provider-dynamic`'s own real, generic group-merge
+mechanism (`internal/snapshot.MergeOpenAPIGroup`) consults this table
+during merge and still refuses loudly on any collision it does NOT
+name -- confirmed live against this repo's own real, regenerated
+snapshot: 176 real resource types and 528 real data-source types
+survive the merge, with `datadog_application_key_response` correctly
+carrying v1's own 5 real attributes rather than v2's 3.
 
 ## Versioning
 
