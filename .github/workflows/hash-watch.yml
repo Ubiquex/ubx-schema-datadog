@@ -58,7 +58,7 @@ jobs:
           echo "current=$current" >> "$GITHUB_OUTPUT"
           echo "Committed manifest.json is at version $current"
 
-      - name: Regenerate all four real members and assemble the group
+      - name: Regenerate both real members and assemble the group
         id: gen
         run: |
           set -euo pipefail
@@ -92,55 +92,35 @@ jobs:
           [[dynamic_providers.datadog_v2.auth.params.headers]]
           name = "DD-APPLICATION-KEY"
           value_env = "DATADOG_APP_KEY"
-
-          [dynamic_providers.datadog_ds]
-          schema_source = "openapi"
-          schema_url = "https://raw.githubusercontent.com/DataDog/datadog-api-client-go/master/.generator/schemas/v1/openapi.yaml"
-          base_url = "https://api.datadoghq.com"
-          wire_name = "datadog"
-          data_sources = true
-
-          [dynamic_providers.datadog_ds.auth]
-          type = "api_key_header"
-          [[dynamic_providers.datadog_ds.auth.params.headers]]
-          name = "DD-API-KEY"
-          value_env = "DATADOG_API_KEY"
-          [[dynamic_providers.datadog_ds.auth.params.headers]]
-          name = "DD-APPLICATION-KEY"
-          value_env = "DATADOG_APP_KEY"
-
-          [dynamic_providers.datadog_v2_ds]
-          schema_source = "openapi"
-          schema_url = "https://raw.githubusercontent.com/DataDog/datadog-api-client-go/master/.generator/schemas/v2/openapi.yaml"
-          base_url = "https://api.datadoghq.com"
-          wire_name = "datadog"
-          data_sources = true
-
-          [dynamic_providers.datadog_v2_ds.auth]
-          type = "api_key_header"
-          [[dynamic_providers.datadog_v2_ds.auth.params.headers]]
-          name = "DD-API-KEY"
-          value_env = "DATADOG_API_KEY"
-          [[dynamic_providers.datadog_v2_ds.auth.params.headers]]
-          name = "DD-APPLICATION-KEY"
-          value_env = "DATADOG_APP_KEY"
           EOF
 
-          # --group-exclude records the SAME real precedence judgment
-          # ubiquex's own [dynamic_provider_groups.datadog_all.exclude]
-          # table already makes for codegen (v1's own richer version
-          # wins both real resource collisions and the one real
-          # data-source collision) -- kept in sync by hand with that
-          # table today; if ubiquex's own exclude table ever changes,
-          # this needs updating to match, or a future real collision
-          # will fail loud here until it is (the correct, honest
-          # failure mode -- never silently mismerged).
+          # UBI-182's own real collapse: each entry's own single fetch
+          # now produces both real members internally (resource mode
+          # keyed by the entry's own name, data-source mode synthesized
+          # under "<name>_ds") -- the old, separate [dynamic_providers.
+          # datadog_ds]/[dynamic_providers.datadog_v2_ds] TABLES are
+          # gone, but the snapshot's own internal member keys are
+          # UNCHANGED (ExpandMemberModes reuses the exact "<name>_ds"
+          # naming the old tables used to carry), so --group-exclude
+          # still keys by those same two internal member names below,
+          # not by the (now single) driving config entry name -- this is
+          # a genuinely different, unrelated mechanism from ubiquex's
+          # own [dynamic_provider_groups.datadog_all.exclude] table
+          # (which DID collapse to one key there, since THAT mechanism
+          # keys by the live config entry directly, not by a
+          # synthesized internal member). Same real precedence judgment
+          # either way (v1's own richer version wins both real resource
+          # collisions and the one real data-source collision) -- kept
+          # in sync by hand with ubiquex's own table today; if that
+          # table ever changes, this needs updating to match, or a
+          # future real collision will fail loud here until it is (the
+          # correct, honest failure mode -- never silently mismerged).
           rm -rf "${{ runner.temp }}/new-group"
           ( cd "${{ runner.temp }}/gen" && \
             "${{ runner.temp }}/ubx-provider-dynamic" \
               --generate-snapshot-group="${{ runner.temp }}/new-group" \
               --group-repo-name=datadog \
-              --group-members=datadog,datadog_v2,datadog_ds,datadog_v2_ds \
+              --group-members=datadog,datadog_v2 \
               --group-exclude='{"datadog_v2":["datadog_application_key_response","datadog_user_response"],"datadog_v2_ds":["datadog_awsevent_bridge_list_response"]}' \
               --prev-snapshot="$GITHUB_WORKSPACE" )
 
