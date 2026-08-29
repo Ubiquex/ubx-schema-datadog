@@ -1,7 +1,7 @@
 {
   "schema_format": 3,
   "provider": "datadog",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "members": [
     "datadog",
     "datadog_ds",
@@ -16,5 +16,6 @@
     "datadog_v2_ds": [
       "datadog_awsevent_bridge_list_response"
     ]
-  }
+  },
+  "min_binary_version": "1.0.2"
 }

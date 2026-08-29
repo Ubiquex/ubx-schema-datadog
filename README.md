@@ -14,14 +14,19 @@ OpenAPI specs (v1 and v2, same repo/branch) but built through genuinely
 different pipelines:
 
 - `datadog` -- v1 resource mode (26 real resource types).
-- `datadog_v2` -- v2 resource mode (152 real resource types -- v1 alone
+- `datadog_v2` -- v2 resource mode (154 real resource types -- v1 alone
   misses most of Datadog's own real surface; v2 is not a v1 replacement,
   most of v1's own resource types have no v2 equivalent at all, so both
-  stay configured, neither retires the other).
-- `datadog_ds` -- v1 data-source mode (79 real, unclaimed read-only
-  operations).
-- `datadog_v2_ds` -- v2 data-source mode (450 real, unclaimed read-only
-  operations).
+  stay configured, neither retires the other. One of these, `CreateWidget`,
+  is UBI-181's own narrow create-verb allowlist admitting a real,
+  published operation a literal "create"/"insert" check missed).
+- `datadog_ds` -- v1 data-source mode (45 real, unclaimed read-only
+  operations -- down from the pre-UBI-181 count: the same PR's own
+  five-rule filter now excludes watch/operation-status/execution/
+  computed/reference-duplication candidates).
+- `datadog_v2_ds` -- v2 data-source mode (406 real, unclaimed read-only
+  operations -- down from the pre-UBI-181 count, the same five-rule
+  filter exclusion as `datadog_ds` above).
 
 - `manifest.json` -- the group's own real identity: `schema_format`,
   `provider`, one `version` for the WHOLE group, and which member names
