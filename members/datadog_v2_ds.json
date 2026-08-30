@@ -12196,6 +12196,7 @@
             "server.response.headers.no_cookies",
             "server.response.trailers",
             "server.response.body",
+            "server.response.body.raw",
             "grpc.server.request.metadata",
             "grpc.server.request.message",
             "grpc.server.method",
@@ -12233,6 +12234,7 @@
             "SERVER_RESPONSE_HEADERS_NO_COOKIES",
             "SERVER_RESPONSE_TRAILERS",
             "SERVER_RESPONSE_BODY",
+            "SERVER_RESPONSE_BODY_RAW",
             "GRPC_SERVER_REQUEST_METADATA",
             "GRPC_SERVER_REQUEST_MESSAGE",
             "GRPC_SERVER_METHOD",
@@ -17207,6 +17209,9 @@
             },
             "buffer": {
               "$ref": "#/components/schemas/ObservabilityPipelineBufferOptions"
+            },
+            "compression": {
+              "$ref": "#/components/schemas/ObservabilityPipelineAzureStorageDestinationCompression"
             },
             "connection_string_key": {
               "description": "Name of the environment variable or secret that holds the Azure Storage connection string.",
@@ -45410,10 +45415,30 @@
               "format": "int64",
               "type": "integer"
             },
+            "fail_on_no_data": {
+              "default": true,
+              "description": "Whether the rule should fail if a matching monitor group is in a NO DATA state.",
+              "example": false,
+              "type": "boolean"
+            },
+            "fail_on_no_groups_found": {
+              "default": false,
+              "description": "Whether the rule should fail if no monitor groups are found for the query.",
+              "example": false,
+              "type": "boolean"
+            },
             "query": {
               "description": "Monitors that match this query are evaluated.",
               "example": "service:my-service env:prod",
               "type": "string"
+            },
+            "warmup": {
+              "default": 0,
+              "description": "Seconds to wait after a deployment starts before evaluating the monitor's status.",
+              "example": 0,
+              "format": "int64",
+              "minimum": 0,
+              "type": "integer"
             }
           },
           "required": [
@@ -75503,6 +75528,11 @@
               },
               "type": "array"
             },
+            "can_annotate": {
+              "description": "Whether the current caller can annotate this interaction.",
+              "example": true,
+              "type": "boolean"
+            },
             "content_id": {
               "description": "Upstream entity identifier (trace ID, session ID, or deterministic display_block ID).",
               "example": "trace-abc-123",
@@ -75550,6 +75580,7 @@
             "modified_at",
             "queue_id",
             "queue_name",
+            "can_annotate",
             "annotations"
           ],
           "type": "object"
@@ -75642,6 +75673,7 @@
               "example": [
                 {
                   "annotations": [],
+                  "can_annotate": true,
                   "content_id": "trace-abc-123",
                   "id": "interaction-456",
                   "type": "trace"
@@ -75724,6 +75756,9 @@
               "example": "00000000-0000-0000-0000-000000000000",
               "type": "string"
             },
+            "code": {
+              "$ref": "#/components/schemas/LLMObsAnnotationErrorCode"
+            },
             "error": {
               "description": "Error message.",
               "example": "interaction not found",
@@ -75740,6 +75775,17 @@
             "error"
           ],
           "type": "object"
+        },
+        "LLMObsAnnotationErrorCode": {
+          "description": "Stable error code. `permission_denied` indicates the item was rejected by queue access rules.",
+          "enum": [
+            "permission_denied"
+          ],
+          "example": "permission_denied",
+          "type": "string",
+          "x-enum-varnames": [
+            "PERMISSION_DENIED"
+          ]
         },
         "LLMObsAnnotationItem": {
           "description": "A single annotation on an interaction.",
@@ -75964,6 +76010,26 @@
               "description": "Identifier of the project this queue belongs to.",
               "example": "00000000-0000-0000-0000-000000000002",
               "type": "string"
+            },
+            "restrict_to_assignees": {
+              "description": "Whether annotation access is restricted to assigned users.",
+              "example": false,
+              "type": "boolean"
+            },
+            "restrict_to_reviewers": {
+              "description": "Whether annotation access is restricted to queue reviewers.",
+              "example": true,
+              "type": "boolean"
+            },
+            "reviewer_emails": {
+              "description": "Email addresses of reviewers who can access the annotation queue.",
+              "example": [
+                "reviewer@example.com"
+              ],
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
             }
           },
           "required": [
@@ -75977,6 +76043,12 @@
           "properties": {
             "annotation_schema": {
               "$ref": "#/components/schemas/LLMObsAnnotationSchema"
+            },
+            "can_manage_access": {
+              "description": "Whether the current caller can manage access for the annotation queue.",
+              "example": true,
+              "readOnly": true,
+              "type": "boolean"
             },
             "created_at": {
               "description": "Timestamp when the queue was created.",
@@ -76019,6 +76091,26 @@
               "description": "Identifier of the project this queue belongs to.",
               "example": "00000000-0000-0000-0000-000000000002",
               "type": "string"
+            },
+            "restrict_to_assignees": {
+              "description": "Whether annotation access is restricted to assigned users.",
+              "example": false,
+              "type": "boolean"
+            },
+            "restrict_to_reviewers": {
+              "description": "Whether annotation access is restricted to queue reviewers.",
+              "example": true,
+              "type": "boolean"
+            },
+            "reviewer_emails": {
+              "description": "Email addresses of reviewers for the annotation queue. Returned only\nwhen the caller can manage queue access.",
+              "example": [
+                "reviewer@example.com"
+              ],
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
             }
           },
           "required": [
@@ -76029,7 +76121,10 @@
             "created_at",
             "modified_by",
             "modified_at",
-            "owned_by"
+            "owned_by",
+            "restrict_to_reviewers",
+            "restrict_to_assignees",
+            "can_manage_access"
           ],
           "type": "object"
         },
@@ -76349,6 +76444,26 @@
               "description": "Updated name of the annotation queue.",
               "example": "Updated queue name",
               "type": "string"
+            },
+            "restrict_to_assignees": {
+              "description": "Whether annotation access is restricted to assigned users.",
+              "example": false,
+              "type": "boolean"
+            },
+            "restrict_to_reviewers": {
+              "description": "Whether annotation access is restricted to queue reviewers.",
+              "example": true,
+              "type": "boolean"
+            },
+            "reviewer_emails": {
+              "description": "Updated email addresses of reviewers who can access the annotation queue.",
+              "example": [
+                "reviewer@example.com"
+              ],
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
             }
           },
           "type": "object"
@@ -78896,6 +79011,11 @@
               },
               "type": "array"
             },
+            "can_annotate": {
+              "description": "Whether the current caller can annotate this interaction.",
+              "example": true,
+              "type": "boolean"
+            },
             "content_id": {
               "description": "Server-generated deterministic identifier derived from the block list.",
               "example": "9a87f3e2b1d4c5a6f8b3e2d1c4a7b5f6e3d2a1c4b7e5f8a3d6c2e1b4a7d5f8c2",
@@ -78917,6 +79037,7 @@
             "id",
             "type",
             "content_id",
+            "can_annotate",
             "annotations",
             "display_block"
           ],
@@ -84185,6 +84306,11 @@
               },
               "type": "array"
             },
+            "can_annotate": {
+              "description": "Whether the current caller can annotate this interaction.",
+              "example": true,
+              "type": "boolean"
+            },
             "content_id": {
               "description": "Upstream entity identifier supplied by the caller.",
               "example": "trace-abc-123",
@@ -84217,6 +84343,7 @@
             "content_id",
             "created_at",
             "modified_at",
+            "can_annotate",
             "annotations"
           ],
           "type": "object"
@@ -96846,6 +96973,9 @@
             "buffer": {
               "$ref": "#/components/schemas/ObservabilityPipelineBufferOptions"
             },
+            "compression": {
+              "$ref": "#/components/schemas/ObservabilityPipelineAmazonS3DestinationCompression"
+            },
             "id": {
               "description": "Unique identifier for the destination component.",
               "example": "amazon-s3-destination",
@@ -96900,6 +97030,83 @@
           "type": "object",
           "x-pipeline-types": [
             "logs"
+          ]
+        },
+        "ObservabilityPipelineAmazonS3DestinationCompression": {
+          "description": "Compression configuration for archived logs. When omitted, logs are compressed with gzip\nfor backward compatibility.",
+          "oneOf": [
+            {
+              "$ref": "#/components/schemas/ObservabilityPipelineAmazonS3DestinationCompressionZstd"
+            },
+            {
+              "$ref": "#/components/schemas/ObservabilityPipelineAmazonS3DestinationCompressionGzip"
+            }
+          ]
+        },
+        "ObservabilityPipelineAmazonS3DestinationCompressionGzip": {
+          "description": "Gzip compression.",
+          "properties": {
+            "algorithm": {
+              "$ref": "#/components/schemas/ObservabilityPipelineAmazonS3DestinationCompressionGzipType"
+            },
+            "level": {
+              "description": "Gzip compression level. Valid values range from `1` to `9`.",
+              "example": 6,
+              "format": "int64",
+              "maximum": 9,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "algorithm",
+            "level"
+          ],
+          "type": "object"
+        },
+        "ObservabilityPipelineAmazonS3DestinationCompressionGzipType": {
+          "default": "gzip",
+          "description": "The compression type. Always `gzip`.",
+          "enum": [
+            "gzip"
+          ],
+          "example": "gzip",
+          "type": "string",
+          "x-enum-varnames": [
+            "GZIP"
+          ]
+        },
+        "ObservabilityPipelineAmazonS3DestinationCompressionZstd": {
+          "description": "Zstd compression.",
+          "properties": {
+            "algorithm": {
+              "$ref": "#/components/schemas/ObservabilityPipelineAmazonS3DestinationCompressionZstdType"
+            },
+            "level": {
+              "description": "Zstd compression level. Valid values range from `1` to` 21`.",
+              "example": 3,
+              "format": "int64",
+              "maximum": 21,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "algorithm",
+            "level"
+          ],
+          "type": "object"
+        },
+        "ObservabilityPipelineAmazonS3DestinationCompressionZstdType": {
+          "default": "zstd",
+          "description": "The compression type. Always `zstd`.",
+          "enum": [
+            "zstd"
+          ],
+          "example": "zstd",
+          "type": "string",
+          "x-enum-varnames": [
+            "ZSTD"
           ]
         },
         "ObservabilityPipelineAmazonS3DestinationServerSideEncryption": {
@@ -97380,6 +97587,83 @@
             }
           },
           "type": "object"
+        },
+        "ObservabilityPipelineAzureStorageDestinationCompression": {
+          "description": "Compression configuration for archived logs. When omitted, logs are compressed with gzip\nfor backward compatibility.",
+          "oneOf": [
+            {
+              "$ref": "#/components/schemas/ObservabilityPipelineAzureStorageDestinationCompressionZstd"
+            },
+            {
+              "$ref": "#/components/schemas/ObservabilityPipelineAzureStorageDestinationCompressionGzip"
+            }
+          ]
+        },
+        "ObservabilityPipelineAzureStorageDestinationCompressionGzip": {
+          "description": "Gzip compression.",
+          "properties": {
+            "algorithm": {
+              "$ref": "#/components/schemas/ObservabilityPipelineAzureStorageDestinationCompressionGzipType"
+            },
+            "level": {
+              "description": "Gzip compression level. Valid values range from `1` to `9`.",
+              "example": 6,
+              "format": "int64",
+              "maximum": 9,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "algorithm",
+            "level"
+          ],
+          "type": "object"
+        },
+        "ObservabilityPipelineAzureStorageDestinationCompressionGzipType": {
+          "default": "gzip",
+          "description": "The compression type. Always `gzip`.",
+          "enum": [
+            "gzip"
+          ],
+          "example": "gzip",
+          "type": "string",
+          "x-enum-varnames": [
+            "GZIP"
+          ]
+        },
+        "ObservabilityPipelineAzureStorageDestinationCompressionZstd": {
+          "description": "Zstd compression.",
+          "properties": {
+            "algorithm": {
+              "$ref": "#/components/schemas/ObservabilityPipelineAzureStorageDestinationCompressionZstdType"
+            },
+            "level": {
+              "description": "Zstd compression level. Valid values range from `1` to `21`.",
+              "example": 3,
+              "format": "int64",
+              "maximum": 21,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "algorithm",
+            "level"
+          ],
+          "type": "object"
+        },
+        "ObservabilityPipelineAzureStorageDestinationCompressionZstdType": {
+          "default": "zstd",
+          "description": "The compression type. Always `zstd`.",
+          "enum": [
+            "zstd"
+          ],
+          "example": "zstd",
+          "type": "string",
+          "x-enum-varnames": [
+            "ZSTD"
+          ]
         },
         "ObservabilityPipelineBufferOptions": {
           "description": "Configuration for buffer settings on destination components.",
@@ -97928,6 +98212,9 @@
             },
             {
               "$ref": "#/components/schemas/ObservabilityPipelineDatadogMetricsDestination"
+            },
+            {
+              "$ref": "#/components/schemas/ObservabilityPipelineOpentelemetryMetricsDestination"
             },
             {
               "$ref": "#/components/schemas/ObservabilityPipelineSplunkHecMetricsDestination"
@@ -99933,6 +100220,9 @@
             "buffer": {
               "$ref": "#/components/schemas/ObservabilityPipelineBufferOptions"
             },
+            "compression": {
+              "$ref": "#/components/schemas/ObservabilityPipelineGoogleCloudStorageDestinationCompression"
+            },
             "id": {
               "description": "Unique identifier for the destination component.",
               "example": "gcs-destination",
@@ -99998,6 +100288,83 @@
             "AUTHENTICATEDNOT_READ",
             "BUCKETNOT_OWNERNOT_READ",
             "BUCKETNOT_OWNERNOT_FULLNOT_CONTROL"
+          ]
+        },
+        "ObservabilityPipelineGoogleCloudStorageDestinationCompression": {
+          "description": "Compression configuration for archived logs. When omitted, logs are compressed with gzip\nfor backward compatibility.",
+          "oneOf": [
+            {
+              "$ref": "#/components/schemas/ObservabilityPipelineGoogleCloudStorageDestinationCompressionZstd"
+            },
+            {
+              "$ref": "#/components/schemas/ObservabilityPipelineGoogleCloudStorageDestinationCompressionGzip"
+            }
+          ]
+        },
+        "ObservabilityPipelineGoogleCloudStorageDestinationCompressionGzip": {
+          "description": "Gzip compression.",
+          "properties": {
+            "algorithm": {
+              "$ref": "#/components/schemas/ObservabilityPipelineGoogleCloudStorageDestinationCompressionGzipType"
+            },
+            "level": {
+              "description": "Gzip compression level. Valid values range from `1` to `9`.",
+              "example": 6,
+              "format": "int64",
+              "maximum": 9,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "algorithm",
+            "level"
+          ],
+          "type": "object"
+        },
+        "ObservabilityPipelineGoogleCloudStorageDestinationCompressionGzipType": {
+          "default": "gzip",
+          "description": "The compression type. Always `gzip`.",
+          "enum": [
+            "gzip"
+          ],
+          "example": "gzip",
+          "type": "string",
+          "x-enum-varnames": [
+            "GZIP"
+          ]
+        },
+        "ObservabilityPipelineGoogleCloudStorageDestinationCompressionZstd": {
+          "description": "Zstd compression.",
+          "properties": {
+            "algorithm": {
+              "$ref": "#/components/schemas/ObservabilityPipelineGoogleCloudStorageDestinationCompressionZstdType"
+            },
+            "level": {
+              "description": "Zstd compression level. Valid values range from `1` to `21`.",
+              "example": 3,
+              "format": "int64",
+              "maximum": 21,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "algorithm",
+            "level"
+          ],
+          "type": "object"
+        },
+        "ObservabilityPipelineGoogleCloudStorageDestinationCompressionZstdType": {
+          "default": "zstd",
+          "description": "The compression type. Always `zstd`.",
+          "enum": [
+            "zstd"
+          ],
+          "example": "zstd",
+          "type": "string",
+          "x-enum-varnames": [
+            "ZSTD"
           ]
         },
         "ObservabilityPipelineGoogleCloudStorageDestinationStorageClass": {
@@ -101514,6 +101881,63 @@
           "type": "string",
           "x-enum-varnames": [
             "OPENSEARCH"
+          ]
+        },
+        "ObservabilityPipelineOpentelemetryMetricsDestination": {
+          "description": "The `opentelemetry` destination forwards metrics using the OpenTelemetry Protocol (OTLP) over HTTP.\n\n**Supported pipeline types:** metrics",
+          "properties": {
+            "buffer": {
+              "$ref": "#/components/schemas/ObservabilityPipelineBufferOptions"
+            },
+            "http_client_uri_key": {
+              "default": "DESTINATION_OTEL_HTTP_CLIENT_URI",
+              "description": "Environment variable name containing the URI of the OTLP HTTP endpoint to send metrics to.",
+              "example": "DESTINATION_OTEL_HTTP_CLIENT_URI",
+              "type": "string"
+            },
+            "id": {
+              "description": "The unique identifier for this component. Used in other parts of the pipeline to reference this component (for example, as the `input` to downstream components).",
+              "example": "opentelemetry-metrics-destination",
+              "type": "string"
+            },
+            "inputs": {
+              "description": "A list of component IDs whose output is used as the `input` for this component.",
+              "example": [
+                "metrics-filter-processor"
+              ],
+              "items": {
+                "description": "The ID of a component whose output is used as input for this destination.",
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "tls": {
+              "$ref": "#/components/schemas/ObservabilityPipelineTls"
+            },
+            "type": {
+              "$ref": "#/components/schemas/ObservabilityPipelineOpentelemetryMetricsDestinationType"
+            }
+          },
+          "required": [
+            "id",
+            "type",
+            "inputs"
+          ],
+          "type": "object",
+          "x-pipeline-types": [
+            "metrics"
+          ]
+        },
+        "ObservabilityPipelineOpentelemetryMetricsDestinationType": {
+          "default": "opentelemetry",
+          "description": "The destination type. Always `opentelemetry`.",
+          "enum": [
+            "opentelemetry"
+          ],
+          "example": "opentelemetry",
+          "type": "string",
+          "x-enum-varnames": [
+            "OPENTELEMETRY"
           ]
         },
         "ObservabilityPipelineOpentelemetrySource": {
@@ -103663,7 +104087,7 @@
           "description": "The `splunk_hec` destination forwards logs to Splunk using the HTTP Event Collector (HEC).\n\n**Supported pipeline types:** logs",
           "properties": {
             "auto_extract_timestamp": {
-              "description": "If `true`, Splunk tries to extract timestamps from incoming log events.\nIf `false`, Splunk assigns the time the event was received.",
+              "description": "If `true`, Splunk tries to extract timestamps from incoming log events.\nIf `false`, Splunk assigns the time the event was received.\nOnly applies when `endpoint_target` is `event`; cannot be `true` when `endpoint_target` is `raw`.",
               "example": true,
               "type": "boolean"
             },
@@ -103672,6 +104096,9 @@
             },
             "encoding": {
               "$ref": "#/components/schemas/ObservabilityPipelineSplunkHecDestinationEncoding"
+            },
+            "endpoint_target": {
+              "$ref": "#/components/schemas/ObservabilityPipelineSplunkHecDestinationEndpointTarget"
             },
             "endpoint_url_key": {
               "description": "Name of the environment variable or secret that holds the Splunk HEC endpoint URL.",
@@ -103749,6 +104176,19 @@
           "x-enum-varnames": [
             "JSON",
             "RAW_MESSAGE"
+          ]
+        },
+        "ObservabilityPipelineSplunkHecDestinationEndpointTarget": {
+          "description": "The Splunk HEC endpoint to send events to. Use `event` to send structured events to the `/event` endpoint, or `raw` to send the raw message to the `/raw` endpoint.",
+          "enum": [
+            "event",
+            "raw"
+          ],
+          "example": "event",
+          "type": "string",
+          "x-enum-varnames": [
+            "EVENT",
+            "RAW"
           ]
         },
         "ObservabilityPipelineSplunkHecDestinationTokenStrategy": {
@@ -128926,16 +129366,15 @@
             "repository": {
               "$ref": "#/components/schemas/ScaRequestDataAttributesRepository"
             },
+            "scan_start_timestamp": {
+              "$ref": "#/components/schemas/ScaRequestDataAttributesScanStartTimestamp"
+            },
             "service": {
               "description": "The name of the service or application being analyzed.",
               "type": "string"
             },
             "tags": {
-              "additionalProperties": {
-                "type": "string"
-              },
-              "description": "A map of key-value tags providing additional metadata for the SCA scan.",
-              "type": "object"
+              "$ref": "#/components/schemas/ScaRequestDataAttributesTags"
             },
             "vulnerabilities": {
               "description": "The list of vulnerabilities identified in the dependency graph.",
@@ -128994,6 +129433,7 @@
             },
             "group": {
               "description": "The group or organization namespace of the dependency (e.g., Maven group ID).",
+              "nullable": true,
               "type": "string"
             },
             "is_dev": {
@@ -129002,6 +129442,7 @@
             },
             "is_direct": {
               "description": "Indicates whether this is a direct dependency (as opposed to a transitive one).",
+              "nullable": true,
               "type": "boolean"
             },
             "language": {
@@ -129009,15 +129450,15 @@
               "type": "string"
             },
             "locations": {
-              "description": "The list of source file locations where this dependency is declared.",
-              "items": {
-                "$ref": "#/components/schemas/ScaRequestDataAttributesDependenciesItemsLocationsItems"
-              },
-              "type": "array"
+              "$ref": "#/components/schemas/ScaRequestDataAttributesDependenciesItemsLocations"
             },
             "name": {
               "description": "The name of the dependency package.",
               "type": "string"
+            },
+            "opaque": {
+              "description": "Indicates whether dependency details are intentionally opaque.",
+              "type": "boolean"
             },
             "package_manager": {
               "description": "The package manager responsible for this dependency (e.g., maven, pip, npm).",
@@ -129034,12 +129475,41 @@
               },
               "type": "array"
             },
+            "requires_transitive_enrichment": {
+              "description": "Indicates whether this dependency requires transitive dependency enrichment.",
+              "type": "boolean"
+            },
+            "target_frameworks": {
+              "description": "The target framework identifiers associated with this dependency.",
+              "items": {
+                "description": "A target framework identifier.",
+                "type": "string"
+              },
+              "type": "array"
+            },
             "version": {
               "description": "The version of the dependency.",
+              "nullable": true,
+              "type": "string"
+            },
+            "version_constraint": {
+              "description": "Indicates whether the version value represents a version constraint.",
+              "type": "boolean"
+            },
+            "version_range": {
+              "description": "The version range associated with this dependency when a manifest declares a range.",
               "type": "string"
             }
           },
           "type": "object"
+        },
+        "ScaRequestDataAttributesDependenciesItemsLocations": {
+          "description": "The list of source file locations where this dependency is declared.",
+          "items": {
+            "$ref": "#/components/schemas/ScaRequestDataAttributesDependenciesItemsLocationsItems"
+          },
+          "nullable": true,
+          "type": "array"
         },
         "ScaRequestDataAttributesDependenciesItemsLocationsItems": {
           "description": "The source code location where a dependency is declared, including block, name, namespace, and version positions within the file.",
@@ -129048,13 +129518,13 @@
               "$ref": "#/components/schemas/ScaRequestDataAttributesDependenciesItemsLocationsItemsFilePosition"
             },
             "name": {
-              "$ref": "#/components/schemas/ScaRequestDataAttributesDependenciesItemsLocationsItemsFilePosition"
+              "$ref": "#/components/schemas/ScaRequestDataAttributesDependenciesItemsLocationsItemsNullableFilePosition"
             },
             "namespace": {
-              "$ref": "#/components/schemas/ScaRequestDataAttributesDependenciesItemsLocationsItemsFilePosition"
+              "$ref": "#/components/schemas/ScaRequestDataAttributesDependenciesItemsLocationsItemsNullableFilePosition"
             },
             "version": {
-              "$ref": "#/components/schemas/ScaRequestDataAttributesDependenciesItemsLocationsItemsFilePosition"
+              "$ref": "#/components/schemas/ScaRequestDataAttributesDependenciesItemsLocationsItemsNullableFilePosition"
             }
           },
           "type": "object"
@@ -129067,6 +129537,31 @@
             },
             "file_name": {
               "description": "The name or path of the file containing this location.",
+              "type": "string"
+            },
+            "role": {
+              "description": "The semantic role associated with this file location.",
+              "type": "string"
+            },
+            "start": {
+              "$ref": "#/components/schemas/ScaRequestDataAttributesDependenciesItemsLocationsItemsPosition"
+            }
+          },
+          "type": "object"
+        },
+        "ScaRequestDataAttributesDependenciesItemsLocationsItemsNullableFilePosition": {
+          "description": "A nullable range within a file defined by a start and end position, along with the file name.",
+          "nullable": true,
+          "properties": {
+            "end": {
+              "$ref": "#/components/schemas/ScaRequestDataAttributesDependenciesItemsLocationsItemsPosition"
+            },
+            "file_name": {
+              "description": "The name or path of the file containing this location.",
+              "type": "string"
+            },
+            "role": {
+              "description": "The semantic role associated with this file location.",
               "type": "string"
             },
             "start": {
@@ -129144,6 +129639,63 @@
           "properties": {
             "url": {
               "description": "The URL of the repository.",
+              "type": "string"
+            }
+          },
+          "type": "object"
+        },
+        "ScaRequestDataAttributesScanStartTimestamp": {
+          "additionalProperties": false,
+          "description": "The time when the SCA scan started.",
+          "nullable": true,
+          "properties": {
+            "nanos": {
+              "description": "Non-negative fractions of a second at nanosecond resolution.",
+              "format": "int32",
+              "maximum": 999999999,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "seconds": {
+              "description": "Seconds of UTC time since Unix epoch.",
+              "format": "int64",
+              "type": "integer"
+            }
+          },
+          "type": "object"
+        },
+        "ScaRequestDataAttributesTags": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "A map of tags providing additional metadata for the SCA scan.",
+          "properties": {
+            "tool": {
+              "$ref": "#/components/schemas/ScaRequestDataAttributesTagsTool"
+            }
+          },
+          "type": "object"
+        },
+        "ScaRequestDataAttributesTagsTool": {
+          "additionalProperties": false,
+          "description": "Tool metadata included in SCA tags.",
+          "properties": {
+            "generator": {
+              "$ref": "#/components/schemas/ScaRequestDataAttributesTagsToolGenerator"
+            }
+          },
+          "type": "object"
+        },
+        "ScaRequestDataAttributesTagsToolGenerator": {
+          "additionalProperties": false,
+          "description": "Metadata about the tool that generated the SCA tags.",
+          "properties": {
+            "name": {
+              "description": "The name of the tag generator.",
+              "type": "string"
+            },
+            "version": {
+              "description": "The version of the tag generator.",
               "type": "string"
             }
           },
@@ -168555,6 +169107,9 @@
             "authorizationCode": {
               "authorizationUrl": "/oauth2/v1/authorize",
               "scopes": {
+                "ai_gateway_config_read": "View AI Gateway configuration.",
+                "ai_gateway_config_write": "Create, update, and delete AI Gateway configuration.",
+                "ai_gateway_usage": "Use AI Gateway and view configuration applicable to the authenticated user.",
                 "apm_api_catalog_read": "View API catalog and API definitions.",
                 "apm_api_catalog_write": "Add, modify, and delete API catalog definitions.",
                 "apm_read": "Read and query APM and Trace Analytics.",
@@ -230788,6 +231343,7 @@
                                     "modified_by": "00000000-0000-0000-0000-000000000002"
                                   }
                                 ],
+                                "can_annotate": true,
                                 "content_id": "trace-abc-123",
                                 "created_at": "2025-06-01T12:00:00Z",
                                 "id": "interaction-456",
@@ -230904,6 +231460,7 @@
                         "data": [
                           {
                             "attributes": {
+                              "can_manage_access": true,
                               "created_at": "2024-01-15T10:30:00Z",
                               "created_by": "00000000-0000-0000-0000-000000000002",
                               "description": "Queue for annotating customer support traces",
@@ -230911,7 +231468,12 @@
                               "modified_by": "00000000-0000-0000-0000-000000000002",
                               "name": "My annotation queue",
                               "owned_by": "00000000-0000-0000-0000-000000000002",
-                              "project_id": "00000000-0000-0000-0000-000000000002"
+                              "project_id": "00000000-0000-0000-0000-000000000002",
+                              "restrict_to_assignees": false,
+                              "restrict_to_reviewers": true,
+                              "reviewer_emails": [
+                                "reviewer@example.com"
+                              ]
                             },
                             "id": "00000000-0000-0000-0000-000000000001",
                             "type": "queues"
@@ -230974,7 +231536,7 @@
           "x-unstable": "**Note**: This endpoint is in preview and is subject to change.\nIf you have any feedback, contact [Datadog support](https://docs.datadoghq.com/help/)."
         },
         "post": {
-          "description": "Create an annotation queue. The `name` and `project_id` fields are required.\nAn optional `annotation_schema` can be provided to define the labels for the queue.\nFields such as `created_by`, `owned_by`, `created_at`, `modified_by`,\nand `modified_at` are inferred by the backend.",
+          "description": "Create an annotation queue. The `name` and `project_id` fields are required.\nAn optional `annotation_schema` can be provided to define the labels for the queue.\nOptional access-control fields can restrict annotation access to reviewers or assignees.\nFields such as `created_by`, `owned_by`, `created_at`, `modified_by`,\nand `modified_at` are inferred by the backend.",
           "operationId": "CreateLLMObsAnnotationQueue",
           "requestBody": {
             "content": {
@@ -230987,6 +231549,24 @@
                           "description": "Queue for annotating customer support traces",
                           "name": "My annotation queue",
                           "project_id": "00000000-0000-0000-0000-000000000002"
+                        },
+                        "type": "queues"
+                      }
+                    }
+                  },
+                  "with_access_controls": {
+                    "summary": "Create queue with access controls",
+                    "value": {
+                      "data": {
+                        "attributes": {
+                          "description": "Queue for annotating customer support traces",
+                          "name": "Restricted annotation queue",
+                          "project_id": "00000000-0000-0000-0000-000000000002",
+                          "restrict_to_assignees": false,
+                          "restrict_to_reviewers": true,
+                          "reviewer_emails": [
+                            "reviewer@example.com"
+                          ]
                         },
                         "type": "queues"
                       }
@@ -231043,6 +231623,7 @@
                       "value": {
                         "data": {
                           "attributes": {
+                            "can_manage_access": true,
                             "created_at": "2024-01-15T10:30:00Z",
                             "created_by": "00000000-0000-0000-0000-000000000002",
                             "description": "Queue for annotating customer support traces",
@@ -231050,7 +231631,12 @@
                             "modified_by": "00000000-0000-0000-0000-000000000002",
                             "name": "My annotation queue",
                             "owned_by": "00000000-0000-0000-0000-000000000002",
-                            "project_id": "00000000-0000-0000-0000-000000000002"
+                            "project_id": "00000000-0000-0000-0000-000000000002",
+                            "restrict_to_assignees": false,
+                            "restrict_to_reviewers": true,
+                            "reviewer_emails": [
+                              "reviewer@example.com"
+                            ]
                           },
                           "id": "00000000-0000-0000-0000-000000000001",
                           "type": "queues"
@@ -231172,7 +231758,7 @@
           "x-unstable": "**Note**: This endpoint is in preview and is subject to change.\nIf you have any feedback, contact [Datadog support](https://docs.datadoghq.com/help/)."
         },
         "patch": {
-          "description": "Partially update an annotation queue. The `name`, `description`, and `annotation_schema` fields can be updated.",
+          "description": "Partially update an annotation queue. The `name`, `description`,\n`annotation_schema`, `reviewer_emails`, `restrict_to_reviewers`, and\n`restrict_to_assignees` fields can be updated.",
           "operationId": "UpdateLLMObsAnnotationQueue",
           "parameters": [
             {
@@ -231188,7 +231774,12 @@
                       "data": {
                         "attributes": {
                           "description": "Updated description",
-                          "name": "Updated queue name"
+                          "name": "Updated queue name",
+                          "restrict_to_assignees": false,
+                          "restrict_to_reviewers": true,
+                          "reviewer_emails": [
+                            "reviewer@example.com"
+                          ]
                         },
                         "type": "queues"
                       }
@@ -231212,6 +231803,7 @@
                       "value": {
                         "data": {
                           "attributes": {
+                            "can_manage_access": true,
                             "created_at": "2024-01-15T10:30:00Z",
                             "created_by": "00000000-0000-0000-0000-000000000002",
                             "description": "Queue for annotating customer support traces",
@@ -231219,7 +231811,12 @@
                             "modified_by": "00000000-0000-0000-0000-000000000002",
                             "name": "My annotation queue",
                             "owned_by": "00000000-0000-0000-0000-000000000002",
-                            "project_id": "00000000-0000-0000-0000-000000000002"
+                            "project_id": "00000000-0000-0000-0000-000000000002",
+                            "restrict_to_assignees": false,
+                            "restrict_to_reviewers": true,
+                            "reviewer_emails": [
+                              "reviewer@example.com"
+                            ]
                           },
                           "id": "00000000-0000-0000-0000-000000000001",
                           "type": "queues"
@@ -231312,6 +231909,7 @@
                             "annotated_interactions": [
                               {
                                 "annotations": [],
+                                "can_annotate": true,
                                 "content_id": "trace-abc-123",
                                 "id": "interaction-456",
                                 "type": "trace"
@@ -231390,7 +231988,7 @@
       },
       "/api/v2/llm-obs/v1/annotation-queues/{queue_id}/annotations": {
         "post": {
-          "description": "Create or update annotations on interactions in a queue. Each annotation is matched\nby `interaction_id` and the requesting user's identity.\nResults and errors in the response are linked to request items by `interaction_id`.\nErrors for individual items are returned in the `errors` field without blocking the rest of the batch.",
+          "description": "Create or update annotations on interactions in a queue. Each annotation is matched\nby `interaction_id` and the requesting user's identity.\nResults and errors in the response are linked to request items by `interaction_id`.\nErrors for individual items are returned in the `errors` field without blocking the rest of the batch.\nRequests where every item is denied by queue access rules return `403`.",
           "operationId": "UpsertLLMObsAnnotations",
           "parameters": [
             {
@@ -231464,6 +232062,40 @@
                           "type": "annotations"
                         }
                       }
+                    },
+                    "mixed_access_denied": {
+                      "summary": "Some annotations were denied by queue access rules",
+                      "value": {
+                        "data": {
+                          "attributes": {
+                            "annotations": [
+                              {
+                                "created_at": "2024-01-15T10:30:00Z",
+                                "created_by": "00000000-0000-0000-0000-000000000002",
+                                "id": "00000000-0000-0000-0000-000000000000",
+                                "interaction_id": "00000000-0000-0000-0000-000000000001",
+                                "label_values": [
+                                  {
+                                    "label_schema_id": "abc-123",
+                                    "value": "good"
+                                  }
+                                ],
+                                "modified_at": "2024-01-15T10:30:00Z",
+                                "modified_by": "00000000-0000-0000-0000-000000000002"
+                              }
+                            ],
+                            "errors": [
+                              {
+                                "code": "permission_denied",
+                                "error": "permission denied",
+                                "interaction_id": "00000000-0000-0000-0000-000000000003"
+                              }
+                            ]
+                          },
+                          "id": "00000000-0000-0000-0000-000000000001",
+                          "type": "annotations"
+                        }
+                      }
                     }
                   },
                   "schema": {
@@ -231471,7 +232103,7 @@
                   }
                 }
               },
-              "description": "OK — annotations created or updated. Per-item errors are listed in `errors`."
+              "description": "OK — annotations created or updated. For mixed batches, denied items and other per-item errors are listed in `errors`."
             },
             "400": {
               "content": {
@@ -231501,7 +232133,7 @@
                   }
                 }
               },
-              "description": "Forbidden"
+              "description": "Forbidden — all request items were denied by queue access rules"
             },
             "404": {
               "content": {
@@ -308419,12 +309051,14 @@
                           "relationships": {
                             "connected_team": {
                               "data": {
-                                "id": "@GitHubOrg/team-handle"
+                                "id": "@GitHubOrg/team-handle",
+                                "type": "github_team"
                               }
                             },
                             "team": {
                               "data": {
-                                "id": "87654321-4321-8765-dcba-210987654321"
+                                "id": "87654321-4321-8765-dcba-210987654321",
+                                "type": "team"
                               }
                             }
                           },
@@ -316748,5 +317382,6 @@
       }
     ],
     "x-group-parameters": true
-  }
+  },
+  "schema_url": "https://raw.githubusercontent.com/DataDog/datadog-api-client-go/master/.generator/schemas/v2/openapi.yaml"
 }

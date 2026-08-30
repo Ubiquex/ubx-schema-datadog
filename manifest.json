@@ -1,7 +1,7 @@
 {
   "schema_format": 3,
   "provider": "datadog",
-  "version": "1.0.1",
+  "version": "2.0.0",
   "members": [
     "datadog",
     "datadog_ds",
@@ -11,11 +11,15 @@
   "exclude": {
     "datadog_v2": [
       "datadog_application_key_response",
-      "datadog_user_response"
-    ],
-    "datadog_v2_ds": [
+      "datadog_user_response",
       "datadog_awsevent_bridge_list_response"
     ]
   },
-  "min_binary_version": "1.0.2"
+  "min_binary_version": "dev",
+  "schema_urls": {
+    "datadog": "https://raw.githubusercontent.com/DataDog/datadog-api-client-go/master/.generator/schemas/v1/openapi.yaml",
+    "datadog_ds": "https://raw.githubusercontent.com/DataDog/datadog-api-client-go/master/.generator/schemas/v1/openapi.yaml",
+    "datadog_v2": "https://raw.githubusercontent.com/DataDog/datadog-api-client-go/master/.generator/schemas/v2/openapi.yaml",
+    "datadog_v2_ds": "https://raw.githubusercontent.com/DataDog/datadog-api-client-go/master/.generator/schemas/v2/openapi.yaml"
+  }
 }

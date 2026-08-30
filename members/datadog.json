@@ -61539,5 +61539,6 @@
       }
     ],
     "x-group-parameters": true
-  }
+  },
+  "schema_url": "https://raw.githubusercontent.com/DataDog/datadog-api-client-go/master/.generator/schemas/v1/openapi.yaml"
 }
