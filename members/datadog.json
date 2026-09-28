@@ -3487,6 +3487,94 @@
           },
           "type": "object"
         },
+        "EmbeddedAppWidgetDefinition": {
+          "additionalProperties": false,
+          "description": "The embedded app widget displays an App Builder app on a dashboard. Exactly one of `app_id` or `template_id` must be provided; they cannot be provided together.",
+          "properties": {
+            "app_id": {
+              "description": "UUID of the App Builder app to embed.",
+              "example": "7e7745f9-4343-4927-b038-80934a355915",
+              "type": "string"
+            },
+            "custom_links": {
+              "description": "List of custom links.",
+              "items": {
+                "$ref": "#/components/schemas/WidgetCustomLink"
+              },
+              "type": "array"
+            },
+            "description": {
+              "description": "The description of the widget.",
+              "maxLength": 5000,
+              "type": "string"
+            },
+            "inputs": {
+              "description": "Inputs passed to the embedded app.",
+              "items": {
+                "$ref": "#/components/schemas/EmbeddedAppWidgetInput"
+              },
+              "type": "array"
+            },
+            "template_id": {
+              "description": "ID of the built-in app template to embed.",
+              "example": "ec2_manager",
+              "type": "string"
+            },
+            "time": {
+              "$ref": "#/components/schemas/WidgetTime"
+            },
+            "title": {
+              "description": "Title of the widget.",
+              "type": "string"
+            },
+            "title_align": {
+              "$ref": "#/components/schemas/WidgetTextAlign"
+            },
+            "title_size": {
+              "description": "Size of the title.",
+              "type": "string"
+            },
+            "type": {
+              "$ref": "#/components/schemas/EmbeddedAppWidgetDefinitionType"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object"
+        },
+        "EmbeddedAppWidgetDefinitionType": {
+          "default": "embedded_app",
+          "description": "Type of the embedded app widget.",
+          "enum": [
+            "embedded_app"
+          ],
+          "example": "embedded_app",
+          "type": "string",
+          "x-enum-varnames": [
+            "EMBEDDED_APP"
+          ]
+        },
+        "EmbeddedAppWidgetInput": {
+          "additionalProperties": false,
+          "description": "An input passed to the embedded app.",
+          "properties": {
+            "name": {
+              "description": "Name of the app input.",
+              "example": "environment",
+              "type": "string"
+            },
+            "value": {
+              "description": "Value of the app input. The API accepts a string, number, boolean, object, or a non-empty homogeneous array of those types.",
+              "example": "production"
+            }
+          },
+          "required": [
+            "name",
+            "value"
+          ],
+          "type": "object"
+        },
         "Event": {
           "description": "Object representing an event.",
           "properties": {
@@ -36573,6 +36661,9 @@
               "$ref": "#/components/schemas/DistributionWidgetDefinition"
             },
             {
+              "$ref": "#/components/schemas/EmbeddedAppWidgetDefinition"
+            },
+            {
               "$ref": "#/components/schemas/EventStreamWidgetDefinition"
             },
             {
@@ -37828,6 +37919,7 @@
                 "incident_write": "Create, view, and manage incidents in Datadog.",
                 "metrics_read": "View custom metrics.",
                 "monitors_downtime": "Set downtimes to suppress alerts from any monitor in an organization. Mute and unmute monitors. The ability to write monitors is not required to set downtimes.",
+                "monitors_draft_write": "Create, edit, and delete draft monitors. Does not allow editing live monitors or publishing drafts to production.",
                 "monitors_read": "View monitors.",
                 "monitors_write": "Edit, delete, and resolve individual monitors.",
                 "org_management": "Edit org configurations, including authentication and certain security preferences such as configuring SAML, renaming an org, configuring allowed login methods, creating child orgs, subscribing \u0026 unsubscribing from apps in the marketplace, and enabling \u0026 disabling Remote Configuration for the entire organization.",
@@ -37866,7 +37958,8 @@
               "tokenUrl": "/oauth2/v1/token"
             }
           },
-          "type": "oauth2"
+          "type": "oauth2",
+          "x-env-name": "DD_BEARER_TOKEN"
         },
         "apiKeyAuth": {
           "description": "Your Datadog API Key.",
@@ -48149,6 +48242,11 @@
               "AuthZ": [
                 "monitors_write"
               ]
+            },
+            {
+              "AuthZ": [
+                "monitors_draft_write"
+              ]
             }
           ],
           "summary": "Create a monitor",
@@ -48159,7 +48257,8 @@
           "x-permission": {
             "operator": "OR",
             "permissions": [
-              "monitors_write"
+              "monitors_write",
+              "monitors_draft_write"
             ]
           }
         }
@@ -48733,6 +48832,11 @@
               "AuthZ": [
                 "monitors_write"
               ]
+            },
+            {
+              "AuthZ": [
+                "monitors_draft_write"
+              ]
             }
           ],
           "summary": "Delete a monitor",
@@ -48742,7 +48846,8 @@
           "x-permission": {
             "operator": "OR",
             "permissions": [
-              "monitors_write"
+              "monitors_write",
+              "monitors_draft_write"
             ]
           }
         },
@@ -48991,6 +49096,11 @@
               "AuthZ": [
                 "monitors_write"
               ]
+            },
+            {
+              "AuthZ": [
+                "monitors_draft_write"
+              ]
             }
           ],
           "summary": "Edit a monitor",
@@ -49001,7 +49111,8 @@
           "x-permission": {
             "operator": "OR",
             "permissions": [
-              "monitors_write"
+              "monitors_write",
+              "monitors_draft_write"
             ]
           }
         }
@@ -61456,6 +61567,9 @@
       {
         "apiKeyAuth": [],
         "appKeyAuth": []
+      },
+      {
+        "AuthZ": []
       }
     ],
     "servers": [
